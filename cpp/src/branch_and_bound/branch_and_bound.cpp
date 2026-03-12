@@ -1950,6 +1950,12 @@ mip_status_t branch_and_bound_t<i_t, f_t>::solve(mip_solution_t<i_t, f_t>& solut
   exploration_stats_.nodes_explored   = 0;
   original_lp_.A.to_compressed_row(Arow_);
 
+  settings_.log.printf("Reduced cost strengthening enabled: %d\n",
+                       settings_.reduced_cost_strengthening);
+
+  variable_bounds_t<i_t, f_t> variable_bounds(
+    original_lp_, settings_, var_types_, Arow_, new_slacks_);
+
   if (guess_.size() != 0) {
     raft::common::nvtx::range scope_guess("BB::check_initial_guess");
     std::vector<f_t> crushed_guess;
@@ -2161,9 +2167,11 @@ mip_status_t branch_and_bound_t<i_t, f_t>::solve(mip_solution_t<i_t, f_t>& solut
                                                            var_types_,
                                                            basis_update,
                                                            root_relax_soln_.x,
+                                                           root_relax_soln_.y,
                                                            root_relax_soln_.z,
                                                            basic_list,
                                                            nonbasic_list,
+                                                           variable_bounds,
                                                            exploration_stats_.start_time);
       if (!problem_feasible) {
         if (settings_.heuristic_preemption_callback != nullptr) {
@@ -2232,6 +2240,7 @@ mip_status_t branch_and_bound_t<i_t, f_t>::solve(mip_solution_t<i_t, f_t>& solut
                                      root_vstatus_,
                                      edge_norms_);
       var_types_.resize(original_lp_.num_cols, variable_type_t::CONTINUOUS);
+      variable_bounds.resize(original_lp_.num_cols);
       mutex_original_lp_.unlock();
       f_t add_cuts_time = toc(add_cuts_start_time);
       if (add_cuts_time > 1.0) {
@@ -2280,6 +2289,9 @@ mip_status_t branch_and_bound_t<i_t, f_t>::solve(mip_solution_t<i_t, f_t>& solut
       }
       if (!feasible) {
         settings_.log.printf("Bound strengthening detected infeasibility\n");
+#ifdef WRITE_BOUND_STRENGTHENING_INFEASIBLE_MPS
+        original_lp_.write_mps("bound_strengthening_infeasible.mps");
+#endif
         return mip_status_t::INFEASIBLE;
       }
 
@@ -2301,7 +2313,6 @@ mip_status_t branch_and_bound_t<i_t, f_t>::solve(mip_solution_t<i_t, f_t>& solut
                                                                   iter,
                                                                   edge_norms_);
       exploration_stats_.total_lp_iters += iter;
-      root_objective_      = compute_objective(original_lp_, root_relax_soln_.x);
       f_t dual_phase2_time = toc(dual_phase2_start_time);
       if (dual_phase2_time > 1.0) {
         settings_.log.debug("Dual phase2 time %.2f seconds\n", dual_phase2_time);
@@ -2331,9 +2342,13 @@ mip_status_t branch_and_bound_t<i_t, f_t>::solve(mip_solution_t<i_t, f_t>& solut
           root_objective_ = compute_objective(original_lp_, root_relax_soln_.x);
         } else {
           settings_.log.printf("Cut status %s\n", dual::status_to_string(cut_status).c_str());
+#ifdef WRITE_CUT_INFEASIBLE_MPS
+          original_lp_.write_mps("cut_infeasible.mps");
+#endif
           return mip_status_t::NUMERICAL;
         }
       }
+      root_objective_ = compute_objective(original_lp_, root_relax_soln_.x);
 
       f_t remove_cuts_start_time = tic();
       mutex_original_lp_.lock();
@@ -2352,6 +2367,7 @@ mip_status_t branch_and_bound_t<i_t, f_t>::solve(mip_solution_t<i_t, f_t>& solut
                   basic_list,
                   nonbasic_list,
                   basis_update);
+      variable_bounds.resize(original_lp_.num_cols);
       mutex_original_lp_.unlock();
       f_t remove_cuts_time = toc(remove_cuts_start_time);
       if (remove_cuts_time > 1.0) {
@@ -2380,8 +2396,9 @@ mip_status_t branch_and_bound_t<i_t, f_t>::solve(mip_solution_t<i_t, f_t>& solut
       f_t change_in_objective = root_objective_ - last_objective;
       const f_t factor        = settings_.cut_change_threshold;
       const f_t min_objective = 1e-3;
-      if (change_in_objective <= factor * std::max(min_objective, std::abs(root_relax_objective))) {
-        settings_.log.debug(
+      if (factor > 0.0 &&
+          change_in_objective <= factor * std::max(min_objective, std::abs(root_relax_objective))) {
+        settings_.log.printf(
           "Change in objective %.16e is less than 1e-3 of root relax objective %.16e\n",
           change_in_objective,
           root_relax_objective);
