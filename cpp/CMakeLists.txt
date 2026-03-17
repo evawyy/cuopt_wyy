@@ -111,6 +111,8 @@ endif(BUILD_MSAN)
 
 if(DEFINE_ASSERT)
   add_definitions(-DASSERT_MODE)
+  list(APPEND CUOPT_CXX_FLAGS -UNDEBUG)
+  list(APPEND CUOPT_CUDA_FLAGS -UNDEBUG)
 endif(DEFINE_ASSERT)
 
 if(DEFINE_BENCHMARK)
@@ -184,11 +186,9 @@ elseif(CMAKE_CUDA_LINEINFO)
   set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} -lineinfo")
 endif(CMAKE_BUILD_TYPE MATCHES Debug)
 
-# Undefine NDEBUG if assert mode is on
-if(DEFINE_ASSERT)
-  message(STATUS "Undefining NDEBUG with assert mode enabled")
-  add_definitions(-UNDEBUG)
-endif()
+# Note: -UNDEBUG is applied via CUOPT_CXX_FLAGS / CUOPT_CUDA_FLAGS (not add_definitions)
+# to avoid leaking into dependencies that are built in-tree.
+# See the DEFINE_ASSERT block near the top of this file.
 
 
 # ##################################################################################################
