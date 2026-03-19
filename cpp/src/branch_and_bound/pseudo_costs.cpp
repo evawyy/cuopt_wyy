@@ -94,7 +94,7 @@ objective_change_estimate_t<f_t> single_pivot_objective_change_estimate(
     compute_delta_z(A_transpose,
                     delta_y,
                     variable_j,
-                    -1,
+                    direction,
                     nonbasic_mark,
                     workspace,
                     delta_z_indices,
@@ -108,7 +108,7 @@ objective_change_estimate_t<f_t> single_pivot_objective_change_estimate(
                                 nonbasic_list,
                                 delta_y_dense,
                                 variable_j,
-                                -1,
+                                direction,
                                 workspace,
                                 delta_z_indices,
                                 delta_z,
@@ -829,7 +829,7 @@ i_t pseudo_costs_t<i_t, f_t>::reliable_variable_selection(
 
   const int64_t branch_and_bound_lp_iters = bnb_stats.total_lp_iters;
   const i_t branch_and_bound_lp_iter_per_node =
-    branch_and_bound_lp_iters / bnb_stats.nodes_explored;
+    bnb_stats.nodes_explored > 0 ? branch_and_bound_lp_iters / bnb_stats.nodes_explored : 0;
 
   i_t reliable_threshold = settings.reliability_branching;
   if (reliable_threshold < 0) {
@@ -945,8 +945,11 @@ i_t pseudo_costs_t<i_t, f_t>::reliable_variable_selection(
         }
       }
     } else {
+      f_t high = max_score > 0 ? max_score : 1;
+      f_t low  = 0;
+
       for (auto& [score, j] : unreliable_list) {
-        if (score == -1) { score = worker->rng.uniform(eps, max_score); }
+        if (score == -1) { score = worker->rng.uniform(low, high); }
       }
     }
 
