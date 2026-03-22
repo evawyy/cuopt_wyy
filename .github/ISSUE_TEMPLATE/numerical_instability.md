@@ -11,7 +11,7 @@ assignees: ''
 A clear description of the numerical problem (e.g., NaN/Inf values, unexpected divergence, extreme sensitivity to small input changes).
 
 **Steps / minimal reproduction**
-Follow this guide http://matthewrocklin.com/blog/work/2018/02/28/minimal-bug-reports where possible. Include inputs, API calls, and solver settings (tolerances, scaling, precision) that reproduce the behavior.
+Follow the [RAPIDS issue guidelines](https://docs.rapids.ai/contributing/issues/) (search existing issues first, then describe the problem so it can be understood and reproduced). Use the cuOpt issue template that best fits; the RAPIDS page describes general practices. Include inputs, API calls, and solver settings (tolerances, scaling, precision) that reproduce the behavior.
 
 **Expected vs actual behavior**
 What you expected numerically, and what you observed (including any error messages or logs).
