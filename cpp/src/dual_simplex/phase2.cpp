@@ -82,7 +82,6 @@ class nvtx_range_guard {
   bool active_;
 };
 
-
 template <typename i_t, typename f_t>
 void compute_reduced_cost_update(const lp_problem_t<i_t, f_t>& lp,
                                  const std::vector<i_t>& basic_list,
@@ -445,8 +444,6 @@ void initial_perturbation(const lp_problem_t<i_t, f_t>& lp,
                       num_perturb,
                       n);
 }
-
-
 
 template <typename i_t, typename f_t>
 void compute_reduced_costs(const std::vector<f_t>& objective,
@@ -3638,28 +3635,26 @@ template dual::status_t dual_phase2_with_advanced_basis<int, double>(
   std::vector<double>& steepest_edge_norms,
   work_limit_context_t* work_unit_context);
 
-template
-void compute_reduced_cost_update<int, double>(const lp_problem_t<int, double>& lp,
-                                 const std::vector<int>& basic_list,
-                                 const std::vector<int>& nonbasic_list,
-                                 const std::vector<double>& delta_y,
-                                 int leaving_index,
-                                 int direction,
-                                 std::vector<int>& delta_z_mark,
-                                 std::vector<int>& delta_z_indices,
-                                 std::vector<double>& delta_z,
-                                 double& work_estimate);
+template void compute_reduced_cost_update<int, double>(const lp_problem_t<int, double>& lp,
+                                                       const std::vector<int>& basic_list,
+                                                       const std::vector<int>& nonbasic_list,
+                                                       const std::vector<double>& delta_y,
+                                                       int leaving_index,
+                                                       int direction,
+                                                       std::vector<int>& delta_z_mark,
+                                                       std::vector<int>& delta_z_indices,
+                                                       std::vector<double>& delta_z,
+                                                       double& work_estimate);
 
-template
-void compute_delta_z<int, double>(const csc_matrix_t<int, double>& A_transpose,
-                     const sparse_vector_t<int, double>& delta_y,
-                     int leaving_index,
-                     int direction,
-                     const std::vector<int>& nonbasic_mark,
-                     std::vector<int>& delta_z_mark,
-                     std::vector<int>& delta_z_indices,
-                     std::vector<double>& delta_z,
-                     double& work_estimate);
+template void compute_delta_z<int, double>(const csc_matrix_t<int, double>& A_transpose,
+                                           const sparse_vector_t<int, double>& delta_y,
+                                           int leaving_index,
+                                           int direction,
+                                           const std::vector<int>& nonbasic_mark,
+                                           std::vector<int>& delta_z_mark,
+                                           std::vector<int>& delta_z_indices,
+                                           std::vector<double>& delta_z,
+                                           double& work_estimate);
 #endif
 
 }  // namespace cuopt::linear_programming::dual_simplex
