@@ -202,6 +202,10 @@ struct presolve_info_t {
   std::vector<i_t> removed_constraints;
 
   folding_info_t<i_t, f_t> folding_info;
+
+  std::vector<i_t> new_slacks;
+  // Variables that were negated to handle -inf < x_j <= u_j
+  std::vector<i_t> negated_variables;
 };
 
 template <typename i_t, typename f_t>
