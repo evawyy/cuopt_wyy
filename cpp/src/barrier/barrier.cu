@@ -3657,7 +3657,7 @@ lp_status_t barrier_solver_t<i_t, f_t>::solve(f_t start_time,
       relative_dual_residual   = dual_residual_norm / (1.0 + norm_c);
       relative_complementarity_residual =
         complementarity_residual_norm /
-        (1.0 + std::abs(compute_user_objective(lp, primal_objective)));
+        (1.0 + std::abs(primal_objective));
 
       if (relative_primal_residual < settings.barrier_relaxed_feasibility_tol &&
           relative_dual_residual < settings.barrier_relaxed_optimality_tol &&
@@ -3708,10 +3708,14 @@ lp_status_t barrier_solver_t<i_t, f_t>::solve(f_t start_time,
                                              solution);
       }
 
+      f_t user_primal_objective = compute_user_objective(lp, primal_objective);
+      f_t user_dual_objective = compute_user_objective(lp, dual_objective);
+      f_t relative_obj_gap = std::abs(user_primal_objective - user_dual_objective) / (1.0 + std::abs(user_primal_objective));
+
       settings.log.printf("%3d   %+.12e %+.12e %.2e %.2e %.2e %.1f\n",
                           iter,
-                          compute_user_objective(lp, primal_objective),
-                          compute_user_objective(lp, dual_objective),
+                          user_primal_objective,
+                          user_dual_objective,
                           relative_primal_residual,
                           relative_dual_residual,
                           relative_complementarity_residual,
@@ -3719,10 +3723,12 @@ lp_status_t barrier_solver_t<i_t, f_t>::solve(f_t start_time,
 
       bool primal_feasible = relative_primal_residual < settings.barrier_relative_feasibility_tol;
       bool dual_feasible   = relative_dual_residual < settings.barrier_relative_optimality_tol;
-      bool small_gap =
+      bool small_compl =
         relative_complementarity_residual < settings.barrier_relative_complementarity_tol;
+      bool small_obj_gap = relative_obj_gap < settings.barrier_relative_complementarity_tol;
 
-      converged = primal_feasible && dual_feasible && small_gap;
+
+      converged = primal_feasible && dual_feasible && small_compl && small_obj_gap;
 
       if (converged) {
         settings.log.printf("\n");
@@ -3755,7 +3761,7 @@ lp_status_t barrier_solver_t<i_t, f_t>::solve(f_t start_time,
           ((!primal_feasible &&
             relative_primal_residual > 100 * data.relative_primal_residual_save) ||
            (!dual_feasible && relative_dual_residual > 100 * data.relative_dual_residual_save) ||
-           (!small_gap && relative_complementarity_residual >
+           (!small_compl && relative_complementarity_residual >
                             10000 * data.relative_complementarity_residual_save))) {
         if (data.relative_primal_residual_save < settings.barrier_relaxed_feasibility_tol &&
             data.relative_dual_residual_save < settings.barrier_relaxed_optimality_tol &&
