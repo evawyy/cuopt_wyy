@@ -195,6 +195,10 @@ struct fj_cpu_climber_t {
 
 template <typename i_t, typename f_t>
 struct cpu_fj_thread_t : public cpu_worker_thread_base_t<cpu_fj_thread_t<i_t, f_t>> {
+  // ~:stop the thread
+  // release memory
+  // close files
+  // synchronize GPU
   ~cpu_fj_thread_t();
 
   void run_worker();

@@ -209,6 +209,8 @@ mip_solution_t<i_t, f_t> run_mip(detail::problem_t<i_t, f_t>& problem,
       auto* presolver_ptr = problem.presolve_data.papilo_presolve_ptr;
       auto mip_callbacks  = settings.get_mip_callbacks();
       f_t no_bound = problem.presolve_data.objective_scaling_factor >= 0 ? (f_t)-1e20 : (f_t)1e20;
+      // crush: presolve_solution <-- primary solution
+      // uncrush: presolve_solution --> primary solution
       auto incumbent_callback =
         [presolver_ptr, mip_callbacks, no_bound](
           f_t solver_obj, f_t user_obj, const std::vector<f_t>& assignment) {
@@ -351,6 +353,7 @@ mip_solution_t<i_t, f_t> solve_mip(optimization_problem_t<i_t, f_t>& op_problem,
     f_t early_best_user_obj{std::numeric_limits<f_t>::infinity()};
     std::mutex early_callback_mutex;
 
+    // TODO:4_10 left befind turning to cut method organizement.
     bool run_early_fj = run_presolve && settings.determinism_mode != CUOPT_MODE_DETERMINISTIC &&
                         op_problem.get_n_integers() > 0 && op_problem.get_n_constraints() > 0;
     f_t no_bound = problem.presolve_data.objective_scaling_factor >= 0 ? (f_t)-1e20 : (f_t)1e20;
@@ -361,6 +364,8 @@ mip_solution_t<i_t, f_t> solve_mip(optimization_problem_t<i_t, f_t>& op_problem,
                                 mip_callbacks = settings.get_mip_callbacks(),
                                 no_bound](
                                  f_t solver_obj, f_t user_obj, const std::vector<f_t>& assignment) {
+        // lock avoid conflicts first and update early_best_objective giving back the
+        // early_best_user_obj correspondingly.
         std::lock_guard<std::mutex> lock(early_callback_mutex);
         if (solver_obj >= early_best_objective.load()) { return; }
         early_best_objective.store(solver_obj);
@@ -384,14 +389,23 @@ mip_solution_t<i_t, f_t> solve_mip(optimization_problem_t<i_t, f_t>& op_problem,
 
     auto constexpr const dual_postsolve = false;
     if (run_presolve) {
+      // Normalize CSR structure by sorting column indices within each row.
+      // This:
+      // - enables efficient lookup (e.g., binary search)
+      // - allows merging of duplicate entries
+      // - improves memory coalescing on GPU
+      // - ensures correctness for algorithms assuming ordered indices
+      // - provides deterministic execution behavior
       detail::sort_csr(op_problem);
-      // allocate not more than 10% of the time limit to presolve.
-      // Note that this is not the presolve time, but the time limit for presolve.
+      // cost_control: allocate not more than 10% of the time limit to presolve.
+      //  Note that this is not the presolve time, but the time limit for presolve.
       double presolve_time_limit = std::min(0.1 * time_limit, 60.0);
       if (settings.determinism_mode == CUOPT_MODE_DETERMINISTIC) {
         presolve_time_limit = std::numeric_limits<double>::infinity();
       }
-      presolver   = std::make_unique<detail::third_party_presolve_t<i_t, f_t>>();
+      presolver = std::make_unique<detail::third_party_presolve_t<i_t, f_t>>();
+
+      // TODO:what apply do precisely? about CPU?
       auto result = presolver->apply(op_problem,
                                      cuopt::linear_programming::problem_category_t::MIP,
                                      settings.presolver,
@@ -408,6 +422,8 @@ mip_solution_t<i_t, f_t> solve_mip(optimization_problem_t<i_t, f_t>& op_problem,
       }
       presolve_result.emplace(std::move(*result));
 
+      // TODO:where is this green ptr??? how can I find them?
+      // what papilo do?
       problem = detail::problem_t<i_t, f_t>(presolve_result->reduced_problem);
       problem.set_papilo_presolve_data(presolver.get(),
                                        presolve_result->reduced_to_original_map,
