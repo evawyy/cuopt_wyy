@@ -1396,6 +1396,7 @@ std::unique_ptr<fj_cpu_climber_t<i_t, f_t>> fj_t<i_t, f_t>::create_cpu_climber(
   const std::vector<f_t>& left_weights,
   const std::vector<f_t>& right_weights,
   f_t objective_weight,
+  // 雅：用于打断的标志
   std::atomic<bool>& preemption_flag,
   fj_settings_t settings,
   bool randomize_params)

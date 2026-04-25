@@ -125,9 +125,7 @@ struct fj_move_t {
     return var_idx < rhs.var_idx;
   }
   bool operator==(const fj_move_t& rhs) const
-  {
-    return var_idx == rhs.var_idx && value == rhs.value;
-  }
+  { return var_idx == rhs.var_idx && value == rhs.value; }
   bool operator!=(const fj_move_t& rhs) const { return !(*this == rhs); }
 };
 
@@ -139,23 +137,15 @@ struct fj_staged_score_t {
   float bonus{-std::numeric_limits<float>::infinity()};
 
   HDI bool operator<(fj_staged_score_t other) const noexcept
-  {
-    return base == other.base ? bonus < other.bonus : base < other.base;
-  }
+  { return base == other.base ? bonus < other.bonus : base < other.base; }
   HDI bool operator>(fj_staged_score_t other) const noexcept
-  {
-    return base == other.base ? bonus > other.bonus : base > other.base;
-  }
+  { return base == other.base ? bonus > other.bonus : base > other.base; }
   HDI bool operator==(fj_staged_score_t other) const noexcept
-  {
-    return base == other.base && bonus == other.bonus;
-  }
+  { return base == other.base && bonus == other.bonus; }
   HDI bool operator!=(fj_staged_score_t other) const noexcept { return !(*this == other); }
 
   HDI static fj_staged_score_t invalid()
-  {
-    return {-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity()};
-  }
+  { return {-std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity()}; }
   HDI static fj_staged_score_t zero() { return {0, 0}; }
 
   HDI bool valid() const { return *this != invalid(); }
@@ -207,7 +197,10 @@ class fj_t {
   fj_t(mip_solver_context_t<i_t, f_t>& context, fj_settings_t settings = fj_settings_t{});
   ~fj_t();
   void reset_cuda_graph();
+  // 这里的solve是Gpu的fj
   i_t solve(solution_t<i_t, f_t>& solution);
+  // 雅：用creat_cpu_climber用于解决gpu干不了的事情，比如一些小问题，需要精细控制的复杂逻辑的问题,同时可以做混合的heuristic
+  // solver.
   std::unique_ptr<fj_cpu_climber_t<i_t, f_t>> create_cpu_climber(
     solution_t<i_t, f_t>& solution,
     const std::vector<f_t>& left_weights,
@@ -216,6 +209,7 @@ class fj_t {
     std::atomic<bool>& preemption_flag,
     fj_settings_t settings = fj_settings_t{},
     bool randomize_params  = false);
+  // 雅：默认是运行到自己停止
   bool cpu_solve(fj_cpu_climber_t<i_t, f_t>& fj_cpu,
                  f_t time_limit = +std::numeric_limits<f_t>::infinity());
   i_t alloc_max_climbers(i_t desired_climbers);
@@ -522,14 +516,10 @@ class fj_t {
       fj_settings_t* settings;
 
       HDI f_t lower_excess_score(i_t cstr, f_t lhs, f_t c_lb) const
-      {
-        return raft::min(lhs - c_lb, (f_t)0);
-      }
+      { return raft::min(lhs - c_lb, (f_t)0); }
 
       HDI f_t upper_excess_score(i_t cstr, f_t lhs, f_t c_ub) const
-      {
-        return raft::min(c_ub - lhs, (f_t)0);
-      }
+      { return raft::min(c_ub - lhs, (f_t)0); }
 
       // Computes the constraint's contribution to the feasibility score:
       // If the constraint is satisfied by the given LHS value, returns 0.

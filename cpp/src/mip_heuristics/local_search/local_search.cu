@@ -26,9 +26,8 @@
 
 namespace cuopt::linear_programming::detail {
 // local_search_t在已有解附近找更好的整数可行解
-template <typename i_t, typename f_t>
-local_search_t<i_t, f_t>::local_search_t(mip_solver_context_t<i_t, f_t>& context_,
-                                         rmm::device_uvector<f_t>& lp_optimal_solution_)
+teuplate<typename i_t, typename f_t> local_search_t<i_t, f_t>::local_search_t(
+  mip_solver_context_t<i_t, f_t>& context_, rmm::device_uvector<f_t>& lp_optimal_solution_)
   : context(context_),
     lp_optimal_solution(lp_optimal_solution_),
     fj_sol_on_lp_opt(context.problem_ptr->n_variables,
@@ -726,6 +725,7 @@ bool local_search_t<i_t, f_t>::run_fp(solution_t<i_t, f_t>& solution,
   problem_t<i_t, f_t>* old_problem_ptr = solution.problem_ptr;
   fp.timer                             = timer_t(timer.remaining_time());
   // if it has not been initialized yet, create a new problem and move it to the cut problem
+  // 雅：confused:problem_with_objective_cut init?? check if defined before run_fp
   if (!problem_with_objective_cut.cutting_plane_added) {
     problem_with_objective_cut = std::move(problem_t<i_t, f_t>(*old_problem_ptr));
   }
@@ -866,7 +866,7 @@ bool local_search_t<i_t, f_t>::generate_solution(solution_t<i_t, f_t>& solution,
   fp.reset();
   fp.resize_vectors(*solution.problem_ptr, solution.handle_ptr);
   is_feasible = run_staged_fp(solution, timer, population_ptr);
-  // is_feasible = run_fp(solution, timer);
+  // is_feasible = uun_fp(solution, timer);
   CUOPT_LOG_DEBUG("Solution generated with FP: is_feasible %d", is_feasible);
   return is_feasible;
 }
