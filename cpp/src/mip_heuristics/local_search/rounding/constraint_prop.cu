@@ -78,6 +78,10 @@ void sort_subsections(raft::device_span<i_t> vars,
   rmm::device_uvector<f_t> input_random_vec(random_vector, handle_ptr->get_stream());
   rmm::device_uvector<i_t> input_vars(vars.size(), handle_ptr->get_stream());
   raft::copy(input_vars.data(), vars.data(), vars.size(), handle_ptr->get_stream());
+  // 雅:CUB segmented sort：
+  //  warp-level 并行
+  //  memory coalescing
+  //  比 CPU 快很多
   cub::DeviceSegmentedSort::SortPairs(d_temp_storage.data(),
                                       temp_storage_bytes,
                                       input_random_vec.data(),
@@ -1175,7 +1179,7 @@ bool constraint_prop_t<i_t, f_t>::handle_fixed_vars(
   auto set_count    = *set_count_ptr;
   const f_t int_tol = sol.problem_ptr->tolerances.integrality_tolerance;
   // which other variables were affected?
-  auto iter        = thrust::stable_partition(sol.handle_ptr->get_thrust_policy(),
+  auto iter = thrust::stable_partition(sol.handle_ptr->get_thrust_policy(),
                                        unset_vars.begin() + set_count,
                                        unset_vars.end(),
                                        is_bound_fixed_t<i_t, f_t, typename type_2<f_t>::type>{

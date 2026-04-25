@@ -25,7 +25,7 @@
 #include <future>
 
 namespace cuopt::linear_programming::detail {
-
+// local_search_t在已有解附近找更好的整数可行解
 template <typename i_t, typename f_t>
 local_search_t<i_t, f_t>::local_search_t(mip_solver_context_t<i_t, f_t>& context_,
                                          rmm::device_uvector<f_t>& lp_optimal_solution_)

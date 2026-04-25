@@ -1,4 +1,17 @@
+important function path:
+
 solve_mip() >> cpp/src/mip_heuristics/solve.cu
 presolve:apply() >> cpp/src/mip_heuristics/feasibility_jump/early_cpufj.cu >> cpp/src/mip_heuristics/feasibility_jump/fj_cpu.cu
+
+!fj_gpu.cu:
+- early_gpu_fj_t:run_worker() >> mip_heuristics/feasibility_jump/feasibility_jump.cu solve()
+- compute_feasibility >>
+- view_t struct >> mip_heuristics/feasibility_jump/feasibility_jump.cuh
+
+//TODO: check these definition
+- fj_setting_t struct >> mip_heuristics/feasibility_jump/feasibility_jump.cuh:103
+- struct mip_solver_context_t >>mip_heuristics/solver_context.cuh:36
+- template problem_t >> mip_heuristics/problem/problem.cu:106
+//
 
 

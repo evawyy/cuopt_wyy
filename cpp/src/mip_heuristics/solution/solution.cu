@@ -53,9 +53,7 @@ solution_t<i_t, f_t>::solution_t(problem_t<i_t, f_t>& problem_)
     obj_val(handle_ptr->get_stream()),
     n_feasible_constraints(handle_ptr->get_stream()),
     lp_state(problem_)
-{
-  clamp_within_var_bounds(assignment, problem_ptr, handle_ptr);
-}
+{ clamp_within_var_bounds(assignment, problem_ptr, handle_ptr); }
 
 template <typename i_t, typename f_t>
 solution_t<i_t, f_t>::solution_t(const solution_t<i_t, f_t>& other)
@@ -98,6 +96,7 @@ void solution_t<i_t, f_t>::copy_from(const solution_t<i_t, f_t>& other_sol)
   expand_device_copy(upper_slack, other_sol.upper_slack, handle_ptr->get_stream());
   expand_device_copy(constraint_value, other_sol.constraint_value, handle_ptr->get_stream());
   raft::copy(obj_val.data(), other_sol.obj_val.data(), 1, handle_ptr->get_stream());
+  // 把 other_sol 的“可行约束数量”从 GPU 拷贝到 当前 solution 的 GPU
   raft::copy(n_feasible_constraints.data(),
              other_sol.n_feasible_constraints.data(),
              1,
@@ -176,33 +175,23 @@ typename solution_t<i_t, f_t>::view_t solution_t<i_t, f_t>::view()
 
 template <typename i_t, typename f_t>
 void solution_t<i_t, f_t>::set_feasible()
-{
-  is_feasible = 1;
-}
+{ is_feasible = 1; }
 
 template <typename i_t, typename f_t>
 void solution_t<i_t, f_t>::set_infeasible()
-{
-  is_feasible = 0;
-}
+{ is_feasible = 0; }
 
 template <typename i_t, typename f_t>
 bool solution_t<i_t, f_t>::get_feasible()
-{
-  return is_feasible;
-}
+{ return is_feasible; }
 
 template <typename i_t, typename f_t>
 bool solution_t<i_t, f_t>::get_problem_fully_reduced()
-{
-  return is_problem_fully_reduced;
-}
+{ return is_problem_fully_reduced; }
 
 template <typename i_t, typename f_t>
 void solution_t<i_t, f_t>::set_problem_fully_reduced()
-{
-  is_problem_fully_reduced = true;
-}
+{ is_problem_fully_reduced = true; }
 
 template <typename i_t, typename f_t>
 std::vector<f_t> solution_t<i_t, f_t>::get_host_assignment()
@@ -398,9 +387,7 @@ bool solution_t<i_t, f_t>::round_simple()
 
 template <typename i_t, typename f_t>
 void solution_t<i_t, f_t>::correct_integer_precision()
-{
-  invoke_correct_integers(*this, problem_ptr->tolerances.integrality_tolerance);
-}
+{ invoke_correct_integers(*this, problem_ptr->tolerances.integrality_tolerance); }
 
 template <typename i_t, typename f_t>
 i_t solution_t<i_t, f_t>::compute_number_of_integers()
@@ -495,21 +482,15 @@ i_t solution_t<i_t, f_t>::calculate_similarity_radius(solution_t<i_t, f_t>& othe
 
 template <typename i_t, typename f_t>
 f_t solution_t<i_t, f_t>::get_objective()
-{
-  return h_obj;
-}
+{ return h_obj; }
 
 template <typename i_t, typename f_t>
 f_t solution_t<i_t, f_t>::get_user_objective()
-{
-  return h_user_obj;
-}
+{ return h_user_obj; }
 
 template <typename i_t, typename f_t>
 f_t solution_t<i_t, f_t>::get_quality(const weight_t<i_t, f_t>& weights)
-{
-  return get_quality(weights.cstr_weights, weights.objective_weight);
-}
+{ return get_quality(weights.cstr_weights, weights.objective_weight); }
 
 // assumed to be called after compute_feasibility is called
 template <typename i_t, typename f_t>

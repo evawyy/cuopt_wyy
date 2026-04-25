@@ -31,7 +31,7 @@
 
 // Define CPUFJ_NVTX_RANGES to enable detailed NVTX profiling ranges
 #ifdef CPUFJ_NVTX_RANGES
-#define CPUFJ_NVTX_RANGE(name)        raft::common::nvtx::range CPUFJ_NVTX_UNIQUE_NAME(nvtx_scope_)(name)
+#define CPUFJ_NVTX_RANGE(name) raft::common::nvtx::range CPUFJ_NVTX_UNIQUE_NAME(nvtx_scope_)(name)
 #define CPUFJ_NVTX_UNIQUE_NAME(base)  CPUFJ_NVTX_CONCAT(base, __LINE__)
 #define CPUFJ_NVTX_CONCAT(a, b)       CPUFJ_NVTX_CONCAT_INNER(a, b)
 #define CPUFJ_NVTX_CONCAT_INNER(a, b) a##b
@@ -500,9 +500,7 @@ static inline std::pair<i_t, i_t> reverse_range_for_var(fj_cpu_climber_t<i_t, f_
 template <typename i_t, typename f_t>
 static inline std::pair<i_t, i_t> range_for_constraint(fj_cpu_climber_t<i_t, f_t>& fj_cpu,
                                                        i_t cstr_idx)
-{
-  return std::make_pair(fj_cpu.h_offsets[cstr_idx], fj_cpu.h_offsets[cstr_idx + 1]);
-}
+{ return std::make_pair(fj_cpu.h_offsets[cstr_idx], fj_cpu.h_offsets[cstr_idx + 1]); }
 
 template <typename i_t, typename f_t>
 static inline bool check_variable_within_bounds(fj_cpu_climber_t<i_t, f_t>& fj_cpu,
@@ -517,9 +515,7 @@ static inline bool check_variable_within_bounds(fj_cpu_climber_t<i_t, f_t>& fj_c
 
 template <typename i_t, typename f_t>
 static inline bool is_integer_var(fj_cpu_climber_t<i_t, f_t>& fj_cpu, i_t var_idx)
-{
-  return var_t::INTEGER == fj_cpu.h_var_types[var_idx];
-}
+{ return var_t::INTEGER == fj_cpu.h_var_types[var_idx]; }
 
 template <typename i_t, typename f_t>
 static inline bool tabu_check(fj_cpu_climber_t<i_t, f_t>& fj_cpu,
@@ -701,30 +697,35 @@ static void apply_move(fj_cpu_climber_t<i_t, f_t>& fj_cpu,
 {
   timing_raii_t<i_t, f_t> timer(fj_cpu.apply_move_times);
   CPUFJ_NVTX_RANGE("CPUFJ::apply_move");
-
+  // 雅：determinied
   raft::random::PCGenerator rng(fj_cpu.settings.seed + fj_cpu.iterations, 0, 0);
-
+  // 雅：防止访问越界
   cuopt_assert(var_idx < fj_cpu.view.pb.n_variables, "variable index out of bounds");
   f_t old_val = fj_cpu.h_assignment[var_idx];
   f_t new_val = old_val + delta;
   if (is_integer_var<i_t, f_t>(fj_cpu, var_idx)) {
+    // 雅：当条件为false 时才会print
     cuopt_assert(fj_cpu.view.pb.integer_equal(new_val, round(new_val)), "new_val is not integer");
     new_val = round(new_val);
   }
   // clamp to var bounds
   new_val = std::min(std::max(new_val, get_lower(fj_cpu.h_var_bounds[var_idx].get())),
                      get_upper(fj_cpu.h_var_bounds[var_idx].get()));
-  delta   = new_val - old_val;
+  // 雅?::delta 和传进来的delta无关。
+  delta = new_val - old_val;
   cuopt_assert(isfinite(new_val), "assignment is not finite");
   cuopt_assert(isfinite(delta), "applied delta is not finite");
   cuopt_assert((check_variable_within_bounds<i_t, f_t>(fj_cpu, var_idx, new_val)),
                "assignment not within bounds");
 
   // Update the LHSs of all involved constraints.
+  // 雅：找到与var_idx有关的约束
   auto [offset_begin, offset_end] = reverse_range_for_var<i_t, f_t>(fj_cpu, var_idx);
-
+  // 雅：有关变量的约束个数
   fj_cpu.nnz_processed_window += (offset_end - offset_begin);
+  // 雅：执行了几次move
   fj_cpu.n_variable_updates_window++;
+  // 雅：move访问了哪些变量。大说明搜索范围广，不容易陷入局部
   fj_cpu.unique_vars_accessed_window.insert(var_idx);
 
   i_t previous_viol = fj_cpu.violated_constraints.size();
@@ -739,6 +740,7 @@ static void apply_move(fj_cpu_climber_t<i_t, f_t>& fj_cpu,
 
     f_t old_lhs = fj_cpu.h_lhs[cstr_idx];
     // Kahan compensated summation
+    // 雅：减少浮点误差
     f_t y                          = cstr_coeff * delta - fj_cpu.h_lhs_sumcomp[cstr_idx];
     f_t t                          = old_lhs + y;
     fj_cpu.h_lhs_sumcomp[cstr_idx] = (t - old_lhs) - y;
@@ -803,7 +805,7 @@ static void apply_move(fj_cpu_climber_t<i_t, f_t>& fj_cpu,
       fj_cpu.feasible_found = true;
     }
   }
-
+  // 雅：禁止“刚做过的反向操作”
   i_t tabu_tenure = fj_cpu.settings.parameters.tabu_tenure_min +
                     rng.next_u32() % (fj_cpu.settings.parameters.tabu_tenure_max -
                                       fj_cpu.settings.parameters.tabu_tenure_min);
@@ -1488,6 +1490,7 @@ static bool cpufj_solve_loop(fj_cpu_climber_t<i_t, f_t>& fj_cpu, f_t in_time_lim
       fj_cpu.last_feasible_entrance_iter = fj_cpu.iterations;
     }
 
+    // 雅：lift,mtm_move_viol,mtm_move_sat 中有一个move成立时，score >0, 否则，score invaild。
     if (score > fj_staged_score_t::zero() && !should_perturb) {
       apply_move(fj_cpu, move.var_idx, move.value, false);
       // Track move types
@@ -1585,15 +1588,11 @@ bool fj_t<i_t, f_t>::cpu_solve(fj_cpu_climber_t<i_t, f_t>& fj_cpu, f_t in_time_l
 
 template <typename i_t, typename f_t>
 cpu_fj_thread_t<i_t, f_t>::~cpu_fj_thread_t()
-{
-  this->request_termination();
-}
+{ this->request_termination(); }
 
 template <typename i_t, typename f_t>
 void cpu_fj_thread_t<i_t, f_t>::run_worker()
-{
-  cpu_fj_solution_found = cpufj_solve_loop(*fj_cpu, time_limit);
-}
+{ cpu_fj_solution_found = cpufj_solve_loop(*fj_cpu, time_limit); }
 
 template <typename i_t, typename f_t>
 void cpu_fj_thread_t<i_t, f_t>::on_terminate()
@@ -1610,9 +1609,7 @@ void cpu_fj_thread_t<i_t, f_t>::on_start()
 
 template <typename i_t, typename f_t>
 void cpu_fj_thread_t<i_t, f_t>::stop_cpu_solver()
-{
-  fj_cpu->halted = true;
-}
+{ fj_cpu->halted = true; }
 
 template <typename i_t, typename f_t>
 std::unique_ptr<fj_cpu_climber_t<i_t, f_t>> init_fj_cpu_standalone(

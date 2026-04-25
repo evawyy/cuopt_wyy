@@ -37,9 +37,7 @@ struct bitmap_t {
 
   bitmap_t(size_t size, const rmm::cuda_stream_view& stream)
     : validity_bitmap(size > 0 ? (size - 1) / bits_per_word + 1 : 0, stream)
-  {
-    clear(stream);
-  }
+  { clear(stream); }
 
   void clear(const rmm::cuda_stream_view& stream)
   {
@@ -52,17 +50,13 @@ struct bitmap_t {
       handle_ptr->get_thrust_policy(), validity_bitmap.begin(), validity_bitmap.end(), 0);
   }
   void resize(size_t size, const rmm::cuda_stream_view& stream)
-  {
-    validity_bitmap.resize(size > 0 ? (size - 1) / bits_per_word + 1 : 0, stream);
-  }
+  { validity_bitmap.resize(size > 0 ? (size - 1) / bits_per_word + 1 : 0, stream); }
 
   struct view_t {
     raft::device_span<word_t> validity_bitmap;
 
     DI thrust::pair<size_t, size_t> idx_to_bitmap(size_t idx) const
-    {
-      return {idx / bits_per_word, idx % bits_per_word};
-    }
+    { return {idx / bits_per_word, idx % bits_per_word}; }
 
     DI void set(size_t idx) const
     {
@@ -96,7 +90,7 @@ struct bitmap_t {
 
   rmm::device_uvector<word_t> validity_bitmap;
 };
-
+// stream 的作用是：指定这个 GPU 数据结构的内存分配和初始化操作在哪个 CUDA 执行流中进行
 template <typename i_t, typename f_t>
 struct contiguous_set_t {
   contiguous_set_t(i_t max_size, const rmm::cuda_stream_view& stream)
@@ -105,9 +99,7 @@ struct contiguous_set_t {
       contents(max_size, stream),
       index_map(max_size, stream),
       validity_bitmap(max_size, stream)
-  {
-    clear(stream);
-  }
+  { clear(stream); }
 
   void clear(const rmm::cuda_stream_view& stream)
   {

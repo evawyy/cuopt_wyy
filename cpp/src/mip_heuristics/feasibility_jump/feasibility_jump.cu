@@ -42,16 +42,20 @@ static constexpr int iterations_per_graph = 50;
 #endif
 
 __constant__ fj_settings_t device_settings;
-
+// fj_t -- constructor function for template fj_t 雅1
 template <typename i_t, typename f_t>
 fj_t<i_t, f_t>::fj_t(mip_solver_context_t<i_t, f_t>& context_, fj_settings_t in_settings)
+  // 成员初始化列表 雅
   : context(context_),
     pb_ptr(context.problem_ptr),
+    // RAFT handle 一般管理：CUDA stream; cuBLAS/cuSPARSE 等资源;设备执行上下文
     handle_ptr(const_cast<raft::handle_t*>(pb_ptr->handle_ptr)),
     settings(in_settings),
+    // 以上成员变量把solver环境接到fj_t中：FJ 需要知道整个 MIP 求解器当前的运行环境
     cstr_weights(pb_ptr->n_constraints, pb_ptr->handle_ptr->get_stream()),
     cstr_right_weights(pb_ptr->n_constraints, pb_ptr->handle_ptr->get_stream()),
     cstr_left_weights(pb_ptr->n_constraints, pb_ptr->handle_ptr->get_stream()),
+    //
     weight_update_increment(1.0),
     objective_weight(0.0, pb_ptr->handle_ptr->get_stream()),
     max_cstr_weight(0, pb_ptr->handle_ptr->get_stream()),
@@ -114,9 +118,7 @@ void fj_t<i_t, f_t>::reset_cuda_graph()
 
 template <typename i_t, typename f_t>
 fj_t<i_t, f_t>::~fj_t()
-{
-  reset_cuda_graph();
-}
+{ reset_cuda_graph(); }
 
 template <typename i_t, typename f_t>
 void fj_t<i_t, f_t>::reset_weights(const rmm::cuda_stream_view& climber_stream, f_t weight)
@@ -567,9 +569,7 @@ void fj_t<i_t, f_t>::climber_init(i_t climber_idx, const rmm::cuda_stream_view& 
 
 template <typename i_t, typename f_t>
 void fj_t<i_t, f_t>::set_fj_settings(fj_settings_t settings_)
-{
-  settings = settings_;
-}
+{ settings = settings_; }
 
 template <typename i_t, typename f_t>
 void fj_t<i_t, f_t>::run_step_device(i_t climber_idx, bool use_graph)
@@ -851,7 +851,9 @@ template <typename i_t, typename f_t>
 i_t fj_t<i_t, f_t>::host_loop(solution_t<i_t, f_t>& solution, i_t climber_idx)
 {
   auto& data = *climbers[climber_idx];
-  auto v     = data.view();  // == climber_views[climber_idx]
+  // 将复杂的 climber_data_t 转换为仅包含 device pointer 的轻量结构，用于在 GPU kernel
+  // 中高效访问数据。雅
+  auto v = data.view();  // == climber_views[climber_idx]
 
   auto climber_stream = data.stream.view();
   if (climber_idx == 0) climber_stream = handle_ptr->get_stream();
@@ -1074,11 +1076,15 @@ void fj_t<i_t, f_t>::resize_vectors(const raft::handle_t* handle_ptr)
 template <typename i_t, typename f_t>
 i_t fj_t<i_t, f_t>::solve(solution_t<i_t, f_t>& solution)
 {
+  // TODO: why scope, and what's the temple of solution?wyy
   raft::common::nvtx::range scope("fj_solve");
   timer_t timer(settings.time_limit);
+  // handle:继承 solution 的 GPU 上下文（CUDA stream + 内存/库句柄）
+  // 确保 FJ 和主 solver 在同一个 GPU 环境中运行，避免资源冲突
   handle_ptr               = const_cast<raft::handle_t*>(solution.handle_ptr);
   pb_ptr                   = solution.problem_ptr;
   last_reported_objective_ = std::numeric_limits<f_t>::infinity();
+  // 非 rounding 模式下，FJ 默认认为输入是“整数解空间中的点”
   if (settings.mode != fj_mode_t::ROUNDING) {
     cuopt_func_call(solution.test_variable_bounds(true));
     cuopt_assert(solution.test_number_all_integer(), "All integers must be rounded");
@@ -1119,15 +1125,17 @@ i_t fj_t<i_t, f_t>::solve(solution_t<i_t, f_t>& solution)
   climber_init(0);
   RAFT_CHECK_CUDA(handle_ptr->get_stream());
   handle_ptr->sync_stream();
-
   i_t iterations = host_loop(solution);
   RAFT_CHECK_CUDA(handle_ptr->get_stream());
   handle_ptr->sync_stream();
+
+  // above is init data and sync gpu for cpu loop later
 
   f_t effort_rate = (f_t)iterations / timer.elapsed_time();
 
   // If we're in rounding mode and some fractionals remain: round them all
   // limit = total_limit * second_stage_split
+  // .value(handle_ptr->get_stream())):device → host 拷贝
   if (settings.mode == fj_mode_t::ROUNDING &&
       climbers[0]->fractional_variables.set_size.value(handle_ptr->get_stream()) > 0) {
     settings.time_limit = settings.time_limit * settings.parameters.rounding_second_stage_split;
@@ -1135,7 +1143,6 @@ i_t fj_t<i_t, f_t>::solve(solution_t<i_t, f_t>& solution)
       settings.iteration_limit * settings.parameters.rounding_second_stage_split;
 
     round_remaining_fractionals(solution);
-
     // if time limit exceeded: round all remaining fractionals if any by nearest rounding.
     if (climbers[0]->fractional_variables.set_size.value(handle_ptr->get_stream()) > 0) {
       solution.round_nearest();
